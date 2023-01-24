@@ -1,5 +1,4 @@
 import json
-from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 from pydantic.error_wrappers import ValidationError
@@ -38,14 +37,15 @@ def pre_process(contents: str) -> list[models.DataPlane]:
     return results
 
 
-def fetch(feed: models.FeedConfig) -> tuple[models.FeedConfig, list[models.DataPlane]]:
+def fetch(feed: models.FeedConfig) -> list[models.DataPlane]:
     internals.logger.debug("fetch")
     if feed.disabled:
         internals.logger.info(f"{feed.name} [magenta]disabled[/magenta]")
-        return
+        return []
     file_path = internals.download_file(feed.url)
     if file_path.exists():
-        return feed, pre_process(file_path.read_text(encoding='utf8'))
+        return pre_process(file_path.read_text(encoding='utf8'))
+    return []
 
 
 def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list[models.FeedStateItem]:
@@ -108,24 +108,19 @@ def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list
 
 def handler(event, context):
     start = datetime.utcnow()
-    # services.aws.delete_s3(f"{internals.APP_ENV}/feeds/dataplane.org/state.json")
-    with ThreadPool() as pool:
-        for result in pool.map(fetch, config.feeds):
-            if not result:
-                continue
-            feed, results = result
-            # services.aws.delete_s3(f"{internals.APP_ENV}/feeds/dataplane.org/{feed.name}/state.json")
-            services.aws.store_s3(
-                path_key=f"{internals.APP_ENV}/feeds/dataplane.org/{feed.name}/{start.strftime('%Y%m%d%H')}.json",
-                value=json.dumps(results, default=str)
+    for feed in config.feeds:
+        results = fetch(feed)
+        if not results:
+            continue
+        # services.aws.delete_s3(f"{internals.APP_ENV}/feeds/dataplane.org/{feed.name}/state.json")
+        services.aws.store_s3(
+            path_key=f"{internals.APP_ENV}/feeds/dataplane.org/{feed.name}/{start.strftime('%Y%m%d%H')}.json",
+            value=json.dumps(results, default=str)
+        )
+        for state_item in process(feed, results):
+            services.aws.store_sqs(
+                queue_name=f'{internals.APP_ENV.lower()}-early-warning-service',
+                message_body=json.dumps({**feed.dict(), **state_item.dict()}, cls=internals.JSONEncoder),
+                deduplicate=False,
             )
-            # state_items = process(feed, results)
-            # internals.logger.info(f"state_items {len(state_items)}")
-            for state_item in process(feed, results):
-                services.aws.store_sqs(
-                    queue_name=f'{internals.APP_ENV.lower()}-ews',
-                    message_body=json.dumps(state_item, cls=internals.JSONEncoder),
-                    deduplicate=False,
-                )
-
-            internals.logger.debug(f"done {feed.name}")
+        internals.logger.debug(f"done {feed.name}")

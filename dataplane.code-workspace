@@ -51,6 +51,7 @@
         "window.autoDetectColorScheme": true,
         "cSpell.words": [
             "cachier",
+            "dataplane",
             "fastapi",
             "NOSONAR",
             "pydantic",

@@ -224,7 +224,7 @@ class HMAC:
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, datetime):
-            return o.isoformat()
+            return o.replace(microsecond=0).isoformat()
         if isinstance(
             o,
             (

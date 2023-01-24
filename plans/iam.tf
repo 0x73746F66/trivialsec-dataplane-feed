@@ -51,6 +51,17 @@ data "aws_iam_policy_document" "feed_processor_dataplane_iam_policy" {
       "arn:aws:ssm:${local.aws_default_region}:${local.aws_master_account_id}:parameter/${var.app_env}/${var.app_name}/*",
     ]
   }
+  statement {
+    sid = "${var.app_env}DataPlaneEWSQueueSQS"
+    actions   = [
+      "sqs:SendMessage",
+      "sqs:ChangeMessageVisibility",
+      "sqs:Get*",
+    ]
+    resources = [
+      data.terraform_remote_state.ews_sqs.outputs.early_warning_service_queue_arn
+    ]
+  }
 }
 resource "aws_iam_role" "feed_processor_dataplane_role" {
   name               = "${lower(var.app_env)}_feed_processor_dataplane_lambda_role"

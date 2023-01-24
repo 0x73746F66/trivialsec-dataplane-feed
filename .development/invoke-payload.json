@@ -1,45 +1,13 @@
 {
-  "Records": [
-    {
-      "messageId": "059f36b4-87a3-44ab-83d2-661975830a7d",
-      "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0a...",
-      "body": "{\"hostname\": \"www.trivialsec.com\", \"port\": 443, \"type\": \"Managed On-demand\"}",
-      "attributes": {
-        "ApproximateReceiveCount": "1",
-        "SentTimestamp": "1545082649183",
-        "SenderId": "AIDAIENQZJOLO23YVJ4VO",
-        "ApproximateFirstReceiveTimestamp": "1545082649185"
-      },
-      "messageAttributes": {
-        "account": {
-          "binaryListValues": [],
-          "dataType": "String",
-          "stringListValues": [],
-          "stringValue": "testing"
-        },
-        "http_paths": {
-          "binaryListValues": [],
-          "dataType": "String",
-          "stringListValues": [],
-          "stringValue": "/"
-        },
-        "queued_by": {
-          "binaryListValues": [],
-          "dataType": "String",
-          "stringListValues": [],
-          "stringValue": "chrislangton84@gmail.com"
-        },
-        "queued_timestamp": {
-          "binaryListValues": [],
-          "dataType": "Number",
-          "stringListValues": [],
-          "stringValue": "1671459945000"
-        }
-      },
-      "md5OfBody": "098f6bcd4621d373cade4e832627b4f6",
-      "eventSource": "aws:sqs",
-      "eventSourceARN": "arn:aws:sqs:ap-southeast-2:984310022655:dev-reconnaissance",
-      "awsRegion": "ap-southeast-2"
-    }
-  ]
+  "version": "0",
+  "id": "53dc4d37-cffa-4f76-80c9-8b7d4a4d2eaa",
+  "detail-type": "Scheduled Event",
+  "source": "aws.events",
+  "account": "984310022655",
+  "time": "2015-10-08T16:53:06Z",
+  "region": "au-southeast-2",
+  "resources": [
+    "arn:aws:events:ap-southeast-2:984310022655:rule/dev_feed_processor_dataplane_schedule"
+  ],
+  "detail": {}
 }
