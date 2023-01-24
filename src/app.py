@@ -30,10 +30,9 @@ def pre_process(contents: str) -> list[models.DataPlane]:
             ))
         except ValidationError as err:
             internals.logger.warning(err, exc_info=True)
-            internals.logger.warning(f"""
-            asn, asn_text, ip_address, last_seen, category
-            {asn}, {asn_text}, {ip_address}, {last_seen}, {category}
-            """)
+            internals.logger.warning(line)
+    internals.logger.info(f"Parsed {len(results)} records")
+
     return results
 
 
@@ -103,6 +102,7 @@ def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list
     internals.logger.info("process step 3 persist state")
     state.last_checked = datetime.utcnow()
     state.save()
+    internals.logger.info(f"Detected {len(entrants)} new entrants")
     return entrants
 
 
