@@ -1276,10 +1276,7 @@ class DataPlane(BaseModel):
 class FeedConfig(BaseModel):
     source: str
     name: str
-    description: str
     url: AnyHttpUrl
-    alert_title: str
-    abuse_email: Optional[EmailStr]
     disabled: bool
 
 
