@@ -1,5 +1,5 @@
 import json
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from typing import Union, Any, Optional
@@ -42,7 +42,7 @@ class DataPlaneCategory(str, Enum):
 class DataPlane(BaseModel):
     asn: Optional[int]
     asn_text: Optional[str]
-    ip_address: Union[IPv4Address, IPv6Address]
+    ip_address: Union[IPv4Address, IPv6Address, IPv4Network, IPv6Network]
     last_seen: datetime
     category: DataPlaneCategory
 

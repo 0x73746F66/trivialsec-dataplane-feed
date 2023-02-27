@@ -48,7 +48,7 @@ def fetch(feed: models.FeedConfig) -> list[models.DataPlane]:
 
 
 def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list[models.FeedStateItem]:
-    state = models.FeedState(source='dataplane.org', feed_name=feed.name)
+    state = models.FeedState(source=feed.source, feed_name=feed.name)
     # step 0, initial ONLY block
     if not state.load():
         internals.logger.warning("process step 0 initial ONLY")
