@@ -1,7 +1,7 @@
 data "aws_iam_policy_document" "feed_processor_dataplane_assume_role_policy" {
   statement {
-    sid = "${var.app_env}TrivialScannerFeedProcessorDataplaneAssumeRole"
-    actions    = ["sts:AssumeRole"]
+    sid     = "${var.app_env}TrivialScannerFeedProcessorDataplaneAssumeRole"
+    actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
@@ -11,7 +11,7 @@ data "aws_iam_policy_document" "feed_processor_dataplane_assume_role_policy" {
 data "aws_iam_policy_document" "feed_processor_dataplane_iam_policy" {
   statement {
     sid = "${var.app_env}TrivialScannerFeedProcessorDataplaneLogging"
-    actions   = [
+    actions = [
       "logs:CreateLogGroup",
       "logs:CreateLogStream",
       "logs:PutLogEvents"
@@ -22,7 +22,7 @@ data "aws_iam_policy_document" "feed_processor_dataplane_iam_policy" {
   }
   statement {
     sid = "${var.app_env}TrivialScannerFeedProcessorDataplaneObjList"
-    actions   = [
+    actions = [
       "s3:Head*",
       "s3:List*",
     ]
@@ -33,7 +33,7 @@ data "aws_iam_policy_document" "feed_processor_dataplane_iam_policy" {
   }
   statement {
     sid = "${var.app_env}TrivialScannerFeedProcessorDataplaneObjAccess"
-    actions   = [
+    actions = [
       "s3:DeleteObject",
       "s3:GetObject",
       "s3:PutObject",
@@ -44,7 +44,7 @@ data "aws_iam_policy_document" "feed_processor_dataplane_iam_policy" {
   }
   statement {
     sid = "${var.app_env}TrivialScannerFeedProcessorDataplaneSecrets"
-    actions   = [
+    actions = [
       "ssm:GetParameter",
     ]
     resources = [
@@ -53,7 +53,7 @@ data "aws_iam_policy_document" "feed_processor_dataplane_iam_policy" {
   }
   statement {
     sid = "${var.app_env}DataPlaneEWSQueueSQS"
-    actions   = [
+    actions = [
       "sqs:SendMessage",
       "sqs:ChangeMessageVisibility",
       "sqs:Get*",
@@ -71,9 +71,9 @@ resource "aws_iam_role" "feed_processor_dataplane_role" {
   }
 }
 resource "aws_iam_policy" "feed_processor_dataplane_policy" {
-  name        = "${lower(var.app_env)}_feed_processor_dataplane_lambda_policy"
-  path        = "/"
-  policy      = data.aws_iam_policy_document.feed_processor_dataplane_iam_policy.json
+  name   = "${lower(var.app_env)}_feed_processor_dataplane_lambda_policy"
+  path   = "/"
+  policy = data.aws_iam_policy_document.feed_processor_dataplane_iam_policy.json
 }
 resource "aws_iam_role_policy_attachment" "policy_attach" {
   role       = aws_iam_role.feed_processor_dataplane_role.name

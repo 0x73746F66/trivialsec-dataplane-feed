@@ -1,5 +1,5 @@
 output "feed_processor_dataplane_arn" {
-    value = aws_lambda_function.feed_processor_dataplane.arn
+  value = aws_lambda_function.feed_processor_dataplane.arn
 }
 output "feed_processor_dataplane_role" {
   value = aws_iam_role.feed_processor_dataplane_role.name
