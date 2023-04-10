@@ -1,23 +1,24 @@
 # pylint: disable=no-self-argument, arguments-differ
-from base64 import urlsafe_b64encode
+import contextlib
 import re
 import logging
 import hmac
 import hashlib
 import threading
 import json
-from tempfile import NamedTemporaryFile
 from pathlib import Path
 import errno
 from os import path, getenv
 from socket import error as SocketError
 from typing import Union
-from base64 import b64encode
+from base64 import b64encode, urlsafe_b64encode
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from ipaddress import (
     IPv4Address,
     IPv6Address,
+    IPv4Network,
+    IPv6Network,
 )
 
 import boto3
@@ -58,7 +59,7 @@ def parse_authorization_header(authorization_header: str) -> dict[str, str]:
             if not pairs or auth_param_re.match(pairs[-1]):  # type: ignore
                 pairs.append(pair)
             else:
-                pairs[-1] = pairs[-1] + "," + pair
+                pairs[-1] = f"{pairs[-1]},{pair}"
         if not auth_param_re.match(pairs[-1]):  # type: ignore
             raise ValueError("Malformed auth parameters")
     for pair in pairs:
@@ -90,39 +91,39 @@ class HMAC:
     @property
     def scheme(self) -> Union[str, None]:
         return (
-            None
-            if not hasattr(self, "parsed_header")
-            else self.parsed_header.get("scheme")
+            self.parsed_header.get("scheme")
+            if hasattr(self, "parsed_header")
+            else None
         )
 
     @property
     def id(self) -> Union[str, None]:
-        return (
-            None if not hasattr(self, "parsed_header") else self.parsed_header.get("id")
-        )
+        return self.parsed_header.get("id") if hasattr(self, "parsed_header") else None
 
     @property
     def ts(self) -> Union[int, None]:
-        return None if not hasattr(self, "parsed_header") else int(self.parsed_header.get("ts"))  # type: ignore
+        return (
+            int(self.parsed_header.get("ts"))
+            if hasattr(self, "parsed_header")
+            else None
+        )
 
     @property
     def mac(self) -> Union[str, None]:
         return (
-            None
-            if not hasattr(self, "parsed_header")
-            else self.parsed_header.get("mac")
+            self.parsed_header.get("mac")
+            if hasattr(self, "parsed_header")
+            else None
         )
 
     @property
     def canonical_string(self) -> str:
         parsed_url = urlparse(self.request_url)
         port = 443 if parsed_url.port is None else parsed_url.port
-        bits = []
-        bits.append(self.request_method.upper())
-        bits.append(parsed_url.hostname.lower())  # type: ignore
-        bits.append(str(port))
-        bits.append(parsed_url.path)
-        bits.append(str(self.ts))
+        bits = [self.request_method.upper()]
+        bits.extend(
+            (parsed_url.hostname.lower(), str(port), parsed_url.path, str(self.ts))
+        )
         if self.contents:
             bits.append(b64encode(self.contents.encode("utf8")).decode("utf8"))
         return "\n".join(bits)
@@ -142,7 +143,11 @@ class HMAC:
         self.contents = raw_body
         self.request_method: str = method
         self.request_url: str = request_url
-        self.algorithm: str = self.default_algorithm if not self.supported_algorithms.get(algorithm) else algorithm  # type: ignore
+        self.algorithm: str = (
+            algorithm
+            if self.supported_algorithms.get(algorithm)
+            else self.default_algorithm
+        )
         self._expire_after_seconds: int = expire_after_seconds
         self._not_before_seconds: int = not_before_seconds
         self.parsed_header: dict[str, str] = parse_authorization_header(
@@ -239,6 +244,8 @@ class JSONEncoder(json.JSONEncoder):
                 AnyHttpUrl,
                 IPv4Address,
                 IPv6Address,
+                IPv4Network,
+                IPv6Network,
                 EmailStr,
             ),
         ):
@@ -250,18 +257,18 @@ class JSONEncoder(json.JSONEncoder):
 
 
 def _request_task(url, body, headers):
-    try:
+    with contextlib.suppress(requests.exceptions.ConnectionError):
         requests.post(url, data=json.dumps(body, cls=JSONEncoder), headers=headers, timeout=(15, 30))
-    except requests.exceptions.ConnectionError:
-        pass
 
 
-def post_beacon(url: HttpUrl, body: dict, headers: dict = {"Content-Type": "application/json"}):
+def post_beacon(url: HttpUrl, body: dict, headers: dict = None):
     """
     A beacon is a fire and forget HTTP POST, the response is not
     needed so we do not even wait for one, so there is no
     response to discard because it was never received
     """
+    if headers is None:
+        headers = {"Content-Type": "application/json"}
     threading.Thread(target=_request_task, args=(url, body, headers)).start()
 
 
@@ -296,9 +303,7 @@ def download_file(remote_file: str, temp_dir: str = CACHE_DIR) -> Path:
         try:
             local_size = path.getsize(temp_path)
         except OSError as err:
-            if err.errno == errno.ENOENT:
-                pass  # no need to raise or handle this
-            else:
+            if err.errno != errno.ENOENT:
                 raise
         if local_size == file_size:
             logger.info(f"[bold]Not Modified[/bold] {temp_path}")
