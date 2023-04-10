@@ -49,9 +49,8 @@ def fetch(feed: models.FeedConfig) -> list[models.DataPlane]:
 
 def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list[models.FeedStateItem]:
     state = models.FeedState(source=feed.source, feed_name=feed.name)
-    # step 0, initial ONLY block
     if not state.load():
-        internals.logger.warning("process step 0 initial ONLY")
+        internals.logger.warning("process initial ONLY")
         state.url = feed.url
         state.records = {}
         for item in feed_items:
@@ -65,20 +64,11 @@ def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list
                 exits=[],
             )
 
-    # step 1, exit any records that no longer appear in the feed
-    internals.logger.info("process step 1 exit records")
-    feed_index = set()
-    for item in feed_items:
-        feed_index.add(str(item.ip_address))
-
-    for state_item in state.records.keys():
-        if state_item not in feed_index:
-            state.exit(state_item)
-
-    # step 2, process new entrants
+    internals.logger.info("process records")
     entrants = []
-    internals.logger.info("process step 2 process new entrants")
+    feed_index = set()
     for feed_item in feed_items:
+        feed_index.add(str(feed_item.ip_address))
         if item := state.records.get(str(feed_item.ip_address)):
             if item.current:
                 continue
@@ -97,13 +87,15 @@ def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list
         state.records[item.key] = item
         entrants.append(item)
 
-    # step 3, persist state
-    internals.logger.info("process step 3 persist state")
+    for state_item in state.records.keys():
+        if state_item not in feed_index:
+            state.exit(state_item)
+
+    internals.logger.info("persist state")
     state.last_checked = datetime.now(timezone.utc)
     state.save()
     internals.logger.info(f"Detected {len(entrants)} new entrants")
     return entrants
-
 
 def handler(event, context):
     start = datetime.now(timezone.utc)

@@ -13,7 +13,7 @@ locals {
     LUMIGO_TAG       = var.app_env
   }
   timeout           = 900
-  memory_size       = 256
+  memory_size       = 384
   retention_in_days = var.app_env == "Prod" ? 30 : 7
   enable_dynatrace  = false # var.app_env == "Prod"
 }
