@@ -64,11 +64,15 @@ def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list
                 exits=[],
             )
 
-    internals.logger.info("process records")
+    internals.logger.info("process exit records")
+    feed_index = {str(feed_item.ip_address) for feed_item in feed_items}
+    for state_item in state.records.keys():
+        if state_item not in feed_index:
+            state.exit(state_item)
+
     entrants = []
-    feed_index = set()
+    internals.logger.info("process new entrants")
     for feed_item in feed_items:
-        feed_index.add(str(feed_item.ip_address))
         if item := state.records.get(str(feed_item.ip_address)):
             if item.current:
                 continue
@@ -86,10 +90,6 @@ def process(feed: models.FeedConfig, feed_items: list[models.DataPlane]) -> list
             )
         state.records[item.key] = item
         entrants.append(item)
-
-    for state_item in state.records.keys():
-        if state_item not in feed_index:
-            state.exit(state_item)
 
     internals.logger.info("persist state")
     state.last_checked = datetime.now(timezone.utc)
