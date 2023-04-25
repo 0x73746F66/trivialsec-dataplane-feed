@@ -1,11 +1,13 @@
-import json
+# pylint: disable=no-self-argument,arguments-differ
+from uuid import UUID, uuid5
 from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 from abc import ABCMeta, abstractmethod
+from typing import Union, Optional
 from enum import Enum
-from typing import Union, Any, Optional
 from datetime import datetime, timezone
 
 from pydantic import (
+    validator,
     BaseModel,
     AnyHttpUrl,
 )
@@ -20,7 +22,7 @@ class DAL(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def load(self, **kwargs) -> Union[BaseModel, None]:
+    def load(self, **kwargs) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -32,19 +34,66 @@ class DAL(metaclass=ABCMeta):
         raise NotImplementedError
 
 
-class DataPlaneCategory(str, Enum):
-    SSH_CLIENT = 'sshclient'
-    SSH_PW_AUTH = 'sshpwauth'
-    DNS_RECURSIVE_QUERIES = 'dnsrd'
-    VNC_REMOTE_FRAME_BUFFER = 'vncrfb'
+class FeedName(str, Enum):
+    SSH_CLIENT = "sshclient"
+    IP_REPUTATION = "ipreputation"
+    SSH_PASSWORD_AUTH = "sshpwauth"
+    RECURSIVE_DNS = "dnsrd"
+    VNC_REMOTE_FRAME_BUFFER = "vncrfb"
+    COMPROMISED_IPS = "compromised-ips"
 
 
-class DataPlane(BaseModel):
+class DataPlane(BaseModel, DAL):
+    address_id: UUID
+    ip_address: Union[IPv4Address, IPv6Address, IPv4Network, IPv6Network]
+    feed_name: FeedName
+    feed_url: AnyHttpUrl
+    first_seen: Optional[datetime]
+    last_seen: datetime
     asn: Optional[int]
     asn_text: Optional[str]
-    ip_address: Union[IPv4Address, IPv6Address, IPv4Network, IPv6Network]
-    last_seen: datetime
-    category: DataPlaneCategory
+
+    class Config:
+        validate_assignment = True
+
+    @validator("first_seen")
+    def set_first_seen(cls, first_seen: datetime):
+        return first_seen.replace(tzinfo=timezone.utc) if first_seen else None
+
+    @validator("last_seen")
+    def set_last_seen(cls, last_seen: datetime):
+        return last_seen.replace(tzinfo=timezone.utc) if last_seen else None
+
+    def exists(
+        self,
+        address_id: Union[UUID, None] = None,
+        ip_address: Union[str, None] = None,
+    ) -> bool:
+        return self.load(address_id, ip_address)
+
+    def load(
+        self,
+        address_id: Union[UUID, None] = None,
+        ip_address: Union[str, None] = None,
+    ) -> bool:
+        if address_id:
+            self.address_id = address_id
+        if ip_address:
+            self.address_id = uuid5(internals.DATAPLANE_NAMESPACE, str(ip_address))
+            self.ip_address = str(ip_address)
+
+        response = services.aws.get_dynamodb(table_name=services.aws.Tables.EWS_DATAPLANE, item_key={'address_id': str(self.address_id)})
+        if not response:
+            internals.logger.warning(f"Missing item in data store for address_id: {self.address_id}")
+            return False
+        super().__init__(**response)
+        return True
+
+    def save(self) -> bool:
+        return services.aws.put_dynamodb(table_name=services.aws.Tables.EWS_DATAPLANE, item=self.dict())
+
+    def delete(self) -> bool:
+        return services.aws.delete_dynamodb(table_name=services.aws.Tables.EWS_DATAPLANE, item_key={'address_id': str(self.address_id)})
 
 
 class FeedConfig(BaseModel):
@@ -52,52 +101,3 @@ class FeedConfig(BaseModel):
     name: str
     url: AnyHttpUrl
     disabled: bool
-
-
-class FeedStateItem(BaseModel):
-    key: str
-    data: Optional[Any]
-    data_model: Optional[str]
-    first_seen: datetime
-    current: bool
-    entrances: list[datetime]
-    exits: list[datetime]
-
-
-class FeedState(BaseModel):
-    source: str
-    feed_name: str
-    url: Optional[AnyHttpUrl]
-    records: Optional[dict[str, FeedStateItem]]
-    last_checked: Optional[datetime]
-
-    @property
-    def object_key(self):
-        return f"{internals.APP_ENV}/feeds/{self.source}/{self.feed_name}/state.json"
-
-    def exit(self, record: str) -> FeedStateItem:
-        if item := self.records.get(record):
-            item.current = False
-            item.exits.append(datetime.now(timezone.utc))
-            self.records[record] = item
-
-    def load(self) -> "FeedState":
-        raw = services.aws.get_s3(path_key=self.object_key)
-        if not raw:
-            internals.logger.warning(f"Missing state {self.object_key}")
-            return
-        try:
-            data = json.loads(raw)
-        except json.decoder.JSONDecodeError as err:
-            internals.logger.debug(err, exc_info=True)
-            return
-        if not data or not isinstance(data, dict):
-            internals.logger.warning(f"Missing state {self.object_key}")
-            return
-        super().__init__(**data)
-        return self
-
-    def save(self) -> bool:
-        return services.aws.store_s3(
-            self.object_key, json.dumps(self.dict(), default=str)
-        )
