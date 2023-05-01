@@ -72,7 +72,6 @@ def handler(event, context):
         if feed.disabled:
             internals.logger.info(f"{feed.name} [magenta]disabled[/magenta]")
             continue
-
         object_prefix = f"{internals.APP_ENV}/feeds/{feed.source}/{feed.name}/"
         # services.aws.delete_s3(f"{object_prefix}latest.txt")
         last_contents = services.aws.get_s3(path_key=f"{object_prefix}latest.txt")
@@ -97,7 +96,10 @@ def handler(event, context):
         queued = 0
         for ip_address in compare_contents(last_contents, contents):
             now = datetime.now(timezone.utc).replace(microsecond=0)
-            category, last_seen, asn, asn_text = extract_data(contents, ip_address)
+            if line_item := extract_data(contents, ip_address):
+                category, last_seen, asn, asn_text = line_item
+            else:
+                category, last_seen, asn, asn_text = (None,) * 4
             data = models.DataPlane(
                 address_id=uuid5(internals.DATAPLANE_NAMESPACE, str(ip_address)),
                 ip_address=ip_address,
