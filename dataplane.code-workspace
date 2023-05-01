@@ -53,6 +53,7 @@
             "cachier",
             "dataplane",
             "fastapi",
+            "lumigo",
             "NOSONAR",
             "pydantic",
             "sendgrid",

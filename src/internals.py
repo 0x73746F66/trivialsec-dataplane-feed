@@ -94,22 +94,20 @@ class HMAC:
     @property
     def scheme(self) -> Union[str, None]:
         return (
-            self.parsed_header.get("scheme")
-            if hasattr(self, "parsed_header")
-            else None
+            None
+            if not hasattr(self, "parsed_header")
+            else self.parsed_header.get("scheme")
         )
 
     @property
     def id(self) -> Union[str, None]:
-        return self.parsed_header.get("id") if hasattr(self, "parsed_header") else None
+        return (
+            None if not hasattr(self, "parsed_header") else self.parsed_header.get("id")
+        )
 
     @property
     def ts(self) -> Union[int, None]:
-        return (
-            int(self.parsed_header.get("ts"))
-            if hasattr(self, "parsed_header")
-            else None
-        )
+        return None if not hasattr(self, "parsed_header") else int(self.parsed_header.get("ts"))  # type: ignore
 
     @property
     def mac(self) -> Union[str, None]:
@@ -277,7 +275,7 @@ def post_beacon(url: HttpUrl, body: dict, headers: dict = None):
 
 
 @retry((SocketError), tries=5, delay=1.5, backoff=1)
-def download_file(remote_file: str, temp_dir: str = CACHE_DIR) -> Path | None:
+def download_file(remote_file: str, temp_dir: str = CACHE_DIR) -> Union[Path, None]:
     session = requests.Session()
     remote_file = remote_file.replace(":80/", "/").replace(":443/", "/")
     logger.info(f"[bold]Checking freshness[/bold] {remote_file}")
