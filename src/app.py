@@ -108,9 +108,9 @@ def handler(event, context):
             data = models.DataPlane(
                 address_id=uuid5(internals.DATAPLANE_NAMESPACE, str(ip_address)),
                 ip_address=ip_address,
-                feed_name=category,
+                feed_name=category or feed.name,
                 feed_url=feed.url,
-                first_seen=last_seen,
+                first_seen=last_seen or now,
                 last_seen=now,
                 asn=asn,
                 asn_text=asn_text
