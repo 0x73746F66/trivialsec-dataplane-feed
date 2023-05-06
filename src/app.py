@@ -101,14 +101,16 @@ def main(event):
             else:
                 category, last_seen, asn, asn_text = (None,) * 4
             data = models.DataPlane(
-                address_id=uuid5(internals.DATAPLANE_NAMESPACE, str(ip_address)),
+                address_id=uuid5(
+                    internals.DATAPLANE_NAMESPACE, str(ip_address)
+                ),
                 ip_address=ip_address,
                 feed_name=category or feed.name,
                 feed_url=feed.url,
                 first_seen=last_seen or now,
                 last_seen=now,
-                asn=int(asn),
-                asn_text=asn_text
+                asn=int(asn) if asn else None,
+                asn_text=asn_text,
             )
             if not data.exists() and data.save() and services.aws.store_sqs(
                 queue_name=f'{internals.APP_ENV.lower()}-early-warning-service',
