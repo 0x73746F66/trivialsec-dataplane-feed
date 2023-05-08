@@ -102,15 +102,15 @@ def main(event):
                 category, last_seen, asn, asn_text = (None,) * 4
             data = models.DataPlane(
                 address_id=uuid5(
-                    internals.DATAPLANE_NAMESPACE, str(ip_address)
+                    internals.NAMESPACE, str(ip_address)
                 ),
                 ip_address=ip_address,
                 feed_name=category or feed.name,
                 feed_url=feed.url,
                 first_seen=last_seen or now,
                 last_seen=now,
-                asn=int(asn) if asn else None,
-                asn_text=asn_text,
+                asn=int(asn) if isinstance(asn, str) and asn.upper() != 'NA' else None,
+                asn_text=asn_text if isinstance(asn_text, str) and asn_text.upper() != 'NA' else None,
             )
             if not data.exists() and data.save() and services.aws.store_sqs(
                 queue_name=f'{internals.APP_ENV.lower()}-early-warning-service',
@@ -119,12 +119,15 @@ def main(event):
             ):
                 queued += 1
                 results += 1
+
         internals.logger.info(f"{queued} queued records -> {feed.name}")
         services.aws.store_s3(
             path_key=f"{object_prefix}latest.txt",
             value=contents
         )
+
     internals.logger.info(f"{results} processed records")
+    return True
 
 
 @lumigo_tracer(
@@ -133,8 +136,8 @@ def main(event):
     skip_collecting_http_body=True,
     verbose=internals.APP_ENV != "Prod"
 )
-def handler(event, context):
+def handler(event, context):  # pylint: disable=unused-argument
     try:
-        main(event)
+        return main(event)
     except Exception as err:
-        raise internals.UnspecifiedError from err
+        internals.always_log(err)
